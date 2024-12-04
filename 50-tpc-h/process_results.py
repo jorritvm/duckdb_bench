@@ -124,8 +124,6 @@ if __name__ == "__main__":
     file_path = 'results/2024-12-04T14-41-47_results.csv'
     df = pd.read_csv(file_path)
 
-    # show_caching_effect_on_slowest_run(df)
-
-    # show_execution_time_evolution(df)
-
+    show_caching_effect_on_slowest_run(df)
+    show_execution_time_evolution(df)
     show_normalized_execution_time_evolution(df)
