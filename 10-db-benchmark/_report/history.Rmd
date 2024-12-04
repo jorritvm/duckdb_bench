@@ -1,0 +1,713 @@
+---
+title: "History of db-benchmark timings"
+output:
+  html_document:
+    fig_width: 9
+    fig_height: 6
+    self_contained: no
+    toc: false
+    includes:
+      in_header: ga.html
+---
+```{r render, include=FALSE}
+# Rscript -e 'rmarkdown::render("./_report/history.Rmd", output_dir="public")' && xdg-open public/history.html
+```
+
+```{r opts, echo=FALSE}
+knitr::opts_knit$set(root.dir="..")
+knitr::opts_chunk$set(echo=FALSE, cache=FALSE)
+```
+
+```{r init, message=FALSE}
+source("./_report/report.R", chdir=TRUE)    ## get_report_status_file
+source("./_helpers/helpers.R", chdir=TRUE)  ## pretty_sci
+library(data.table)
+library(lattice)
+fctr = function(x, rev=FALSE) {
+  levels = unique(x)
+  factor(x, levels=if (rev) rev(levels) else levels)
+}
+.nodename = "mr-dl11"
+data = function() {
+  d = fread("time.csv")[nodename==.nodename & batch>=1546293600] ## from 2019
+  d[run==1L & !is.na(batch)
+    ] -> d
+  q = fread("_control/questions.csv")
+  q[, c("question_group","question") := list(fctr(question_group, rev=TRUE), fctr(question))
+    ] -> q
+  q[d, on=c("task","question"), nomatch=NULL, list(
+    task=i.task, batch=i.batch, solution=fctr(i.solution), data=fctr(substr(i.data, 4L, nchar(i.data))), in_rows=i.in_rows,
+    version=i.version, git=i.git,
+    time_sec=i.time_sec,
+    question_group=x.question_group, question=x.question
+    )] -> d
+  d[CJ(batch, task, solution, data, question, unique=TRUE), on=c("batch","task","solution","data","question")
+    ][, "batch" := as.POSIXct(batch, origin="1970-01-01")
+      ][]
+}
+plot = function(d, s, n, t) {
+  tryCatch({
+    f = sapply(d, is.factor)
+    dd = d[task==t & solution==s & in_rows==n][, which(f) := lapply(.SD, factor), .SDcols=f]
+    if (uniqueN(dd$batch)<2L) stop("not enough ticks on X axis") ## workaround deepayan/lattice#19
+    xyplot(
+      data=dd,
+      time_sec~batch|data+question_group,
+      groups=question,
+      auto.key=list(columns=length(levels(dd$question_group)), lines=TRUE, points=FALSE),
+      type="l",
+      scales=list(y=list(relation="free", log=TRUE, equispaced.log=FALSE)),
+      xlab="benchmark run", ylab="query seconds (log)", main=paste(s, t, pretty_sci(n))
+    )
+  }, error = function(e) message(e$message))
+}
+d = data()
+```
+
+## Solution {.tabset}
+
+### data.table {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r datatable.groupby.1e7}
+plot(d, "data.table", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r datatable.groupby.1e8}
+plot(d, "data.table", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r datatable.groupby.1e9}
+plot(d, "data.table", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r datatable.join.1e7}
+plot(d, "data.table", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r datatable.join.1e8}
+plot(d, "data.table", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r datatable.join.1e9}
+plot(d, "data.table", 1e9, "join")
+```
+
+### pydatatable {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r pydatatable.groupby.1e7}
+plot(d, "pydatatable", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r pydatatable.groupby.1e8}
+plot(d, "pydatatable", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r pydatatable.groupby.1e9}
+plot(d, "pydatatable", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r pydatatable.join.1e7}
+plot(d, "pydatatable", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r pydatatable.join.1e8}
+plot(d, "pydatatable", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r pydatatable.join.1e9}
+plot(d, "pydatatable", 1e9, "join")
+```
+
+### pandas {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r pandas.groupby.1e7}
+plot(d, "pandas", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r pandas.groupby.1e8}
+plot(d, "pandas", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r pandas.groupby.1e9}
+plot(d, "pandas", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r pandas.join.1e7}
+plot(d, "pandas", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r pandas.join.1e8}
+plot(d, "pandas", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r pandas.join.1e9}
+plot(d, "pandas", 1e9, "join")
+```
+
+### dplyr {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r dplyr.groupby.1e7}
+plot(d, "dplyr", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r dplyr.groupby.1e8}
+plot(d, "dplyr", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r dplyr.groupby.1e9}
+plot(d, "dplyr", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r dplyr.join.1e7}
+plot(d, "dplyr", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r dplyr.join.1e8}
+plot(d, "dplyr", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r dplyr.join.1e9}
+plot(d, "dplyr", 1e9, "join")
+```
+
+
+### dask {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r dask.groupby.1e7}
+plot(d, "dask", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r dask.groupby.1e8}
+plot(d, "dask", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r dask.groupby.1e9}
+plot(d, "dask", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r dask.join.1e7}
+plot(d, "dask", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r dask.join.1e8}
+plot(d, "dask", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r dask.join.1e9}
+plot(d, "dask", 1e9, "join")
+```
+
+### spark {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r spark.groupby.1e7}
+plot(d, "spark", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r spark.groupby.1e8}
+plot(d, "spark", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r spark.groupby.1e9}
+plot(d, "spark", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r spark.join.1e7}
+plot(d, "spark", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r spark.join.1e8}
+plot(d, "spark", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r spark.join.1e9}
+plot(d, "spark", 1e9, "join")
+```
+
+### juliadf {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r juliadf.groupby.1e7}
+plot(d, "juliadf", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r juliadf.groupby.1e8}
+plot(d, "juliadf", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r juliadf.groupby.1e9}
+plot(d, "juliadf", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r juliadf.join.1e7}
+plot(d, "juliadf", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r juliadf.join.1e8}
+plot(d, "juliadf", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r juliadf.join.1e9}
+plot(d, "juliadf", 1e9, "join")
+```
+
+### juliads {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r juliads.groupby.1e7}
+plot(d, "juliads", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r juliads.groupby.1e8}
+plot(d, "juliads", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r juliads.groupby.1e9}
+plot(d, "juliads", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r juliads.join.1e7}
+plot(d, "juliads", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r juliads.join.1e8}
+plot(d, "juliads", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r juliads.join.1e9}
+plot(d, "juliads", 1e9, "join")
+```
+
+### cudf {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r cudf.groupby.1e7}
+plot(d, "cudf", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r cudf.groupby.1e8}
+plot(d, "cudf", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r cudf.groupby.1e9}
+plot(d, "cudf", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r cudf.join.1e7}
+plot(d, "cudf", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r cudf.join.1e8}
+plot(d, "cudf", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r cudf.join.1e9}
+plot(d, "cudf", 1e9, "join")
+```
+
+### clickhouse {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r clickhouse.groupby.1e7}
+plot(d, "clickhouse", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r clickhouse.groupby.1e8}
+plot(d, "clickhouse", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r clickhouse.groupby.1e9}
+plot(d, "clickhouse", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r clickhouse.join.1e7}
+plot(d, "clickhouse", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r clickhouse.join.1e8}
+plot(d, "clickhouse", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r clickhouse.join.1e9}
+plot(d, "clickhouse", 1e9, "join")
+```
+
+### polars {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r polars.groupby.1e7}
+plot(d, "polars", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r polars.groupby.1e8}
+plot(d, "polars", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r polars.groupby.1e9}
+plot(d, "polars", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r polars.join.1e7}
+plot(d, "polars", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r polars.join.1e8}
+plot(d, "polars", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r polars.join.1e9}
+plot(d, "polars", 1e9, "join")
+```
+
+### arrow {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r arrow.groupby.1e7}
+plot(d, "arrow", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r arrow.groupby.1e8}
+plot(d, "arrow", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r arrow.groupby.1e9}
+plot(d, "arrow", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r arrow.join.1e7}
+plot(d, "arrow", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r arrow.join.1e8}
+plot(d, "arrow", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r arrow.join.1e9}
+plot(d, "arrow", 1e9, "join")
+```
+
+
+### duckdb {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r duckdb.groupby.1e7}
+plot(d, "duckdb", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r duckdb.groupby.1e8}
+plot(d, "duckdb", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r duckdb.groupby.1e9}
+plot(d, "duckdb", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r duckdb.join.1e7}
+plot(d, "duckdb", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r duckdb.join.1e8}
+plot(d, "duckdb", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r duckdb.join.1e9}
+plot(d, "duckdb", 1e9, "join")
+```
+
+### duckdb-latest {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r duckdb-latest.groupby.1e7}
+plot(d, "duckdb-latest", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r duckdb-latest.groupby.1e8}
+plot(d, "duckdb-latest", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r duckdb-latest.groupby.1e9}
+plot(d, "duckdb-latest", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r duckdb-latest.join.1e7}
+plot(d, "duckdb-latest", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r duckdb-latest.join.1e8}
+plot(d, "duckdb-latest", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r duckdb-latest.join.1e9}
+plot(d, "duckdb-latest", 1e9, "join")
+```
+
+## Details
+
+### Environment
+
+Nodename: `r .nodename`
+
+------
+
+Report was generated on: `r format(Sys.time(), usetz=TRUE)`.  
+
+```{r status_set_success}
+cat("history\n", file=get_report_status_file(), append=TRUE)
+```
+
+### datafusion {.tabset .tabset-fade .tabset-pills}
+
+#### groupby {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r datafusion.groupby.1e7}
+plot(d, "datafusion", 1e7, "groupby")
+```
+
+##### 5 GB
+
+```{r datafusion.groupby.1e8}
+plot(d, "datafusion", 1e8, "groupby")
+```
+
+##### 50 GB {.active}
+
+```{r datafusion.groupby.1e9}
+plot(d, "datafusion", 1e9, "groupby")
+```
+
+#### join {.tabset .tabset-fade .tabset-pills}
+
+##### 0.5 GB
+
+```{r datafusion.join.1e7}
+plot(d, "datafusion", 1e7, "join")
+```
+
+##### 5 GB {.active}
+
+```{r datafusion.join.1e8}
+plot(d, "datafusion", 1e8, "join")
+```
+
+##### 50 GB
+
+```{r datafusion.join.1e9}
+plot(d, "datafusion", 1e9, "join")
+```

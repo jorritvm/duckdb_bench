@@ -1,0 +1,7 @@
+data/
+old/
+_old/
+*public*/
+public*/
+*_old*/
+*.ipc
