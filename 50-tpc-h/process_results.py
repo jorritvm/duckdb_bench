@@ -5,6 +5,9 @@ import seaborn as sns
 import re
 
 
+file_path = 'results/2024-12-04T14-41-47_results.csv'
+
+
 ## helpers
 def extract_query_number(query):
     # Use regex to extract the number from PRAGMA tpch(i);
@@ -121,7 +124,6 @@ def show_normalized_execution_time_evolution(df):
 
 if __name__ == "__main__":
     # Load the data from CSV
-    file_path = 'results/2024-12-04T14-41-47_results.csv'
     df = pd.read_csv(file_path)
 
     show_caching_effect_on_slowest_run(df)
