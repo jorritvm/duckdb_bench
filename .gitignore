@@ -1,6 +1,5 @@
 duckdb.exe
 ~$*
-data/
 old/
 _old/
 *public*/
